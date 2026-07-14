@@ -27,11 +27,11 @@ run it.
           ┌─────────────┴──────────────┐
           │ mapped                      │ unmapped / error
           ▼                             ▼
-  x-loy-eventhub-balance-updates   eventhub-dead-letter
+  x-loy-events-account-created  eventhub-dead-letter
      (x: route/validate)            → VM queue eventhub.dlq
           │
           ▼
-  p-loy-eventhub-balance-update
+  p-loy-events-profile-update
      (p: orchestrate, map to system contract, retry)
           │
           ▼
@@ -45,17 +45,17 @@ run it.
 ### Layers (API-led)
 | Layer | Flow | Responsibility |
 |-------|------|----------------|
-| Experience / Router (`x-`) | `x-loy-eventhub-balance-updates` | Thin: validate + delegate to `p-` |
-| Process (`p-`) | `p-loy-eventhub-balance-update` | Orchestrate: map to system contract, retry |
+| Experience / Router (`x-`) | `x-profile-created` | Thin: validate + delegate to `p-` |
+| Process (`p-`) | `p-profile-created` | Orchestrate: map to system contract, retry |
 | System (`s-`) | `s-system-record-upsert` | Exactly one outbound HTTP call |
 | Consumer | `ac-loy-eventhub-consumer` | VM listener + dynamic routing, no per-type logic |
-| Test harness | `x-eventhub-inject`, `mock-system-of-record` | Inject events / stand in for the downstream |
+| Test harness | `x-eventhub-inject`, `mock-system-of-record` | Inject events / stand in for the downstream | helps to inject event through postman and http listener for local mock testing.
 
 ### Dynamic routing
 `src/main/resources/notificationTypeToFlow.json` maps `eventType → x-flow`:
 
 ```json
-{ "BALANCE_UPDATES": "x-loy-eventhub-balance-updates" }
+{ "accountCreated": "x-profile-created" }
 ```
 
 The consumer reads this at runtime and dispatches with `<flow-ref name="#[vars.targetFlow]"/>`.
@@ -129,6 +129,6 @@ This POC favors zero-setup reproducibility. In a real deployment:
 
 ## Status
 
-Working POC skeleton: one end-to-end event type (`BALANCE_UPDATES`) exercising
+Working POC skeleton: one end-to-end event type (`accountCreated`) exercising
 all layers plus dynamic routing and a dead-letter path. Extend by adding
 registry entries and new `x-`/`p-`/`s-` flows.

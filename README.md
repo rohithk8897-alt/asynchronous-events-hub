@@ -78,7 +78,7 @@ Routed event (happy path):
 ```bash
 curl -X POST http://localhost:8081/events \
   -H "Content-Type: application/json" \
-  -d '{"eventType":"BALANCE_UPDATES","memberId":"M1","payload":{"balance":5000,"currency":"PTS"}}'
+  -d '{"eventType":"accountCreated","memberId":"M1","payload":{"balance":5000,"currency":"POINTS"}}'
 ```
 Returns `202 Accepted`. Console shows: consumer received → routed to
 `x-loy-eventhub-balance-updates` → `p-` → `s-` → mock system `200`.

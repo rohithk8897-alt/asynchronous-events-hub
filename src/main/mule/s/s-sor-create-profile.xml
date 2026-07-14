@@ -11,7 +11,7 @@ http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/htt
 	     parent p-flow owns the checkpoint / retry decision. -->
 	<flow name="s-sor-create-profile" doc:id="9ff3fa04-3db8-4252-953c-e99aa30910e6">
 		<logger level="INFO" doc:name="Log s-layer call" doc:id="b08c1fee-e759-45c1-83f4-d028ec893e49" message="${logging.message} [s] creating profile in system of record" category="${logging.category.default}" />
-		<http:request method="POST" doc:name="POST profile record" doc:id="ed51ee42-e626-469b-a68c-23a208ed725d" config-ref="Downstream_Request_config" path="#[p('ac.loy.eventhub.sor.createProfile.path')]">
+		<http:request method="POST" doc:name="POST profile record" doc:id="ed51ee42-e626-469b-a68c-23a208ed725d" config-ref="Downstream_Request_config" path="#[p('asynchronous.events.sor.createProfile.path')]">
 			<http:body><![CDATA[#[payload]]]></http:body>
 			<http:headers><![CDATA[#[output application/java
 ---

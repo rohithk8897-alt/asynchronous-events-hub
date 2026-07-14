@@ -18,15 +18,15 @@ http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/htt
 		</vm:connection>
 		<expiration-policy maxIdleTime="30000" timeUnit="MILLISECONDS" />
 		<vm:queues>
-			<vm:queue queueName="${ac.loy.eventhub.vm.inbound.queue}" queueType="PERSISTENT" />
-			<vm:queue queueName="${ac.loy.eventhub.vm.dlq.queue}" queueType="PERSISTENT" />
+			<vm:queue queueName="${asynchronous.events.vm.inbound.queue}" queueType="PERSISTENT" />
+			<vm:queue queueName="${asynchronous.events.vm.dlq.queue}" queueType="PERSISTENT" />
 		</vm:queues>
 	</vm:config>
 
 	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="42549ebb-c121-4c88-93cb-bad4724ddce0">
-		<http:listener-connection host="0.0.0.0" port="${ac.loy.eventhub.http.port}" />
+		<http:listener-connection host="0.0.0.0" port="${asynchronous.events.http.port}" />
 	</http:listener-config>
 
 	<http:request-config name="Downstream_Request_config" doc:name="Downstream HTTP Request config" doc:id="0ca1458f-acd4-4a87-8e79-cec36453504c">
-		<http:request-connection host="${ac.loy.eventhub.downstream.host}" port="${ac.loy.eventhub.downstream.port}" protocol="HTTP" />
+		<http:request-connection host="${asynchronous.events.downstream.host=}" port="${asynchronous.events.downstream.port}" protocol="HTTP" />
 	</http:request-config></mule>

@@ -9,13 +9,12 @@
 http://www.mulesoft.org/schema/mule/vm http://www.mulesoft.org/schema/mule/vm/current/mule-vm.xsd
 http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
 http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
-
 	<flow name="x-eventhub-inject" doc:id="inject-flow-0001">
 		<http:listener doc:name="POST /events" doc:id="inject-listener-0001" config-ref="HTTP_Listener_config" path="/events" allowedMethods="POST">
 			<http:response statusCode="202">
 				<http:body><![CDATA[#[output application/json
 ---
-{ status: "ACCEPTED", queue: p('ac.loy.eventhub.vm.inbound.queue') }]]]></http:body>
+{ status: "ACCEPTED", queue: p('asynchronous.events.vm.inbound.queue') }]]]></http:body>
 			</http:response>
 		</http:listener>
 		<ee:transform doc:name="Ensure JSON payload" doc:id="inject-transform-0001">
@@ -26,8 +25,7 @@ output application/json
 payload]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
-		<vm:publish queueName="${ac.loy.eventhub.vm.inbound.queue}" doc:name="Publish to inbound queue" doc:id="inject-publish-0001" config-ref="VM_Config" />
-		<logger level="INFO" doc:name="Log injected event" doc:id="inject-logger-0001" message="#['Injected event of type ' ++ (payload.eventType default 'UNKNOWN') ++ ' onto ' ++ p('ac.loy.eventhub.vm.inbound.queue')]" />
+		<vm:publish queueName="${asynchronous.events.vm.inbound.queue}" doc:name="Publish to inbound queue" doc:id="inject-publish-0001" config-ref="VM_Config" />
+		<logger level="INFO" doc:name="Log injected event" doc:id="inject-logger-0001" message="#['Injected event of type ' ++ (payload.eventType default 'UNKNOWN') ++ ' onto ' ++ p('asynchronous.events.vm.inbound.queue')]" />
 	</flow>
-
 </mule>

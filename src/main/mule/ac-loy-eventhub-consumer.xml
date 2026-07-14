@@ -9,7 +9,7 @@ http://www.mulesoft.org/schema/mule/vm http://www.mulesoft.org/schema/mule/vm/cu
 http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
 http://www.mulesoft.org/schema/mule/ibm-mq http://www.mulesoft.org/schema/mule/ibm-mq/current/mule-ibm-mq.xsd">
 
-	<flow name="ac-loy-eventhub-consumer" doc:id="0e27bde2-c6d0-44a3-ab4a-b6a03a7a6eb4" maxConcurrency="${ac.loy.eventhub.consumer.numberOfConsumers}">
+	<flow name="ac-loy-eventhub-consumer" doc:id="0e27bde2-c6d0-44a3-ab4a-b6a03a7a6eb4" maxConcurrency="${asynchronous.events.consumer.numberOfConsumers}">
 		<vm:listener doc:name="Listener" doc:id="1938bcb7-2161-405e-be79-bfe86b797c33" config-ref="VM_Config" queueName="eventhub.inbound"/>
 		<flow-ref doc:name="v1-common-set-transaction-id" doc:id="f35945bf-bf2d-4f52-9f63-d8774125a8b1" name="v1-common-set-transaction-id"/>
 		<logger level="INFO" doc:name="Start" doc:id="4b6aa9a6-9890-4044-8df3-01061fd76e75" message="${logging.message} Start" category="${logging.category.default}" />
@@ -23,7 +23,16 @@ output application/json
 if ((not isEmpty(vars.payload)) and ((typeOf(payload) as String) == "String")) read(payload,"application/json") else payload]]></ee:set-variable>
 			</ee:variables>
 		</ee:transform>
-		<set-variable value="#[%dw 2.0&#10;output application/java&#10;---&#10;(payload.deliveryCount default 0) as Number]" doc:name="deliveryCount" doc:id="a2d2a3d6-0616-4d7c-8fdf-b2078c37ba61" variableName="deliveryCount"/>
+		<set-variable value="#[%dw 2.0&#10;output application/json&#10;---&#10;(payload.deliveryCount default 0) as Number]" doc:name="deliveryCount" doc:id="a2d2a3d6-0616-4d7c-8fdf-b2078c37ba61" variableName="deliveryCount" />
+		<choice doc:name="Choice" doc:id="89183728-d06d-4629-9676-b317a183e66e" >
+			<when expression="#[vars.deliveryCount == Mule::p('asynchronous.events.consumer.maxRedelivery')]">
+				<logger level="INFO" doc:name="Logger" doc:id="9673ee82-fa4c-4bff-9c39-c400692388e8" message="Redelivery exhausted, publishing message to dlq" category="${logging.category.default}" />
+				<raise-error doc:name="REDELIVERY_EXHAUSTED" doc:id="c8960fbd-0331-4992-a881-a40f677b6232" type="REDELIVERY_EXHAUSTED" description="REDELIVERY_EXHAUSTED"/>
+			</when>
+			<otherwise >
+				<logger level="INFO" doc:name="Logger" doc:id="675b8dc2-e460-408b-b698-c8a5a41b152d" message="Redelivery has not exhausted, continue with message processing" category="${logging.category.default}" />
+			</otherwise>
+		</choice>
 		<ee:transform doc:name="Set originalMessage and deliveryCount" doc:id="f1acb9f7-2a77-4c38-bb53-e4427fbbc2a3">
 			<ee:variables>
 				<ee:set-variable variableName="originalMessage"><![CDATA[%dw 2.0
@@ -36,7 +45,7 @@ output application/java
 (payload.deliveryCount default 0) as Number]]></ee:set-variable>
 				<ee:set-variable variableName="targetFlow"><![CDATA[%dw 2.0
 output application/java
-var registry = readUrl('classpath://' ++ p('ac.loy.eventhub.registry.file'), 'application/json')
+var registry = readUrl('classpath://' ++ p('asynchronous.events.registry.file'), 'application/json')
 ---
 registry[payload.event.eventType default "UNKNOWN"] default ""]]></ee:set-variable>
 			</ee:variables>
@@ -56,7 +65,7 @@ registry[payload.event.eventType default "UNKNOWN"] default ""]]></ee:set-variab
 			<on-error-continue enableNotifications="true" logException="true" doc:name="On processing failure - retry or DLQ" doc:id="d3a66675-9184-4744-8cdb-e3adeeecb967" type="ANY">
 				<logger level="ERROR" doc:name="Log failure" doc:id="e994df28-1037-49c2-9727-fcb8bf08d40e" message="#['Processing failed for ' ++ (vars.originalMessage as String) ++ ' at deliveryCount=' ++ (vars.deliveryCount as String) ++ ': ' ++ (error.description default '')]" category="${logging.category.default}"/>
 				<choice doc:name="Retries remaining?" doc:id="b8ecfb8f-0c8c-4736-8930-546ddced9807">
-					<when expression="#[vars.deliveryCount &lt; (p('ac.loy.eventhub.retry.maxDeliveryCount') as Number)]">
+					<when expression="#[vars.deliveryCount &lt; (p('synchronous.events.consumer.maxRedelivery') as Number)]">
 						<ee:transform doc:name="Increment deliveryCount" doc:id="71edd0bc-6479-4346-90b8-9327f299cb04">
 							<ee:message>
 								<ee:set-payload><![CDATA[%dw 2.0
@@ -66,7 +75,7 @@ payload ++ { deliveryCount: (vars.deliveryCount default 0) ++ 1 }]]></ee:set-pay
 							</ee:message>
 						</ee:transform>
 						<logger level="WARN" doc:name="Log replay" doc:id="876ebc63-f3fe-4bdc-abe7-1c5904c02794" message="#['Replaying ' ++ (vars.originalMessage as String) ++ ' - attempt ' ++ ((vars.deliveryCount as Number) + 1 as String) ++ ' of ' ++ p('ac.loy.eventhub.retry.maxDeliveryCount')]" category="${logging.category.default}"/>
-						<vm:publish queueName="${ac.loy.eventhub.vm.inbound.queue}" doc:name="Republish to inbound queue" doc:id="527030ef-ab43-4ebc-a646-baee69081e37" config-ref="VM_Config" />
+						<vm:publish queueName="${asynchronous.events.vm.inbound.queue}" doc:name="Republish to inbound queue" doc:id="527030ef-ab43-4ebc-a646-baee69081e37" config-ref="VM_Config" />
 					</when>
 					<otherwise>
 						<logger level="ERROR" doc:name="Log max retries reached" doc:id="342341a7-31be-47c4-814d-e1b14c7b20a2" message="#['Max retries reached for ' ++ (vars.originalMessage as String) ++ '; sending to DLQ']" category="${logging.category.default}"/>
@@ -76,9 +85,8 @@ payload ++ { deliveryCount: (vars.deliveryCount default 0) ++ 1 }]]></ee:set-pay
 			</on-error-continue>
 		</error-handler>
 	</flow>
-
 	<flow name="eventhub-dead-letter" doc:id="1c9bd838-aefb-423b-bb42-bdb82ddd0930">
-		<vm:publish queueName="${ac.loy.eventhub.vm.dlq.queue}" doc:name="Publish to DLQ" doc:id="95374488-9ea7-4d66-9151-6845f515bf20" config-ref="VM_Config" />
-		<logger level="WARN" doc:name="Log parked on DLQ" doc:id="0511c61f-49c2-4eb0-897a-11f22625ddef" message="#['Event ' ++ (vars.originalMessage default 'UNKNOWN' as String) ++ ' parked on ' ++ p('ac.loy.eventhub.vm.dlq.queue')]" category="${logging.category.default}"/>
+		<vm:publish queueName="${asynchronous.events.vm.dlq.queue}" doc:name="Publish to DLQ" doc:id="95374488-9ea7-4d66-9151-6845f515bf20" config-ref="VM_Config" />
+		<logger level="WARN" doc:name="Log parked on DLQ" doc:id="0511c61f-49c2-4eb0-897a-11f22625ddef" message="#['Event ' ++ (vars.originalMessage default 'UNKNOWN' as String) ++ ' parked on ' ++ p('asynchronous.events.vm.dlq.queue')]" category="${logging.category.default}"/>
 	</flow>
 </mule>

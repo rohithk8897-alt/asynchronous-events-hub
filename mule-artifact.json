@@ -1,0 +1,16 @@
+{
+    "classLoaderModelLoaderDescriptor": {
+        "attributes": {
+            "exportedPackages": [],
+            "exportedResources": ["notificationTypeToFlow.json"]
+        },
+        "id": "mule"
+    },
+    "requiredProduct": "MULE_EE",
+    "minMuleVersion": "4.6.0",
+    "bundleDescriptorLoader": {
+        "attributes": {},
+        "id": "mule"
+    },
+    "javaSpecificationVersions": ["17"]
+}

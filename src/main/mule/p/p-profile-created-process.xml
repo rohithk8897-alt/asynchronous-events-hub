@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+	<!-- Child process (sub-process) flow: does the real work based on the
+	     original message detail, then delegates the single system call to the
+	     s-layer. Errors bubble up to the parent p-flow (no local handler). -->
+	<flow name="p-profile-created-process" doc:id="6f8c137f-df7f-4f24-bd0e-f730e73738a5">
+		<logger level="INFO" doc:name="Start" doc:id="32db62dd-7ba0-45d5-adf7-7875d637069b" message="${logging.message} Start" category="${logging.category.default}" />
+		<ee:transform doc:name="Build profile from message" doc:id="faf59778-cb2d-4ca5-84de-3c4bc28f4d1b">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+
+---
+{
+	recordType: "LOYALTY_PROFILE",
+	uid: vars.transaction_id,
+	eventId: vars.originalMessage.event.eventId,
+	source: vars.originalMessage.event.source default "UNKNOWN",
+	sagaId: vars.originalMessage.event.saga.sagaId,
+	createdAt: now() as String
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<until-successful maxRetries="5" doc:name="Until Successful" doc:id="e60aefb2-4521-41e2-8266-48dc652e25cc" millisBetweenRetries="3000">
+			<try doc:name="Try" doc:id="76cc9def-1452-4437-990e-0dc6008e66b9">
+			<flow-ref doc:name="s-sor-create-profile" doc:id="a939e1fc-e3c5-450d-89e5-8bb83764ab8d" name="s-sor-create-profile" />
+			<error-handler>
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="faaa6c5c-f09d-487a-bc5b-2471420a6d4d" type="ANY" >
+						<logger level="INFO" doc:name="Logger" doc:id="b8995d25-bde7-4e41-b8fb-1c4a92b8d9e3" message="Any error occured during profile created update"/>
+					</on-error-propagate>
+			</error-handler>
+		</try>
+		</until-successful>
+		<logger level="DEBUG" doc:name="End" doc:id="aaa0b090-5d34-4bc1-ab4e-e9103a48a53d" message="${ac.eip.api.logging.message.prefix} End" category="${ac.eip.api.logging.category.default}" />
+	</flow>
+
+</mule>

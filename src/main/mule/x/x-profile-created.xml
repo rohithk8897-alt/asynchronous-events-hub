@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd">
+
+	<flow name="x-profile-created" doc:id="5d2fda7b-4aac-45a8-9fd9-3c08e768f2e2">
+		<logger level="INFO" doc:name="Start" doc:id="f63833d7-b048-4bc9-9e11-8c8d4e74a937" message="#['[p] orchestrating profile-created for eventType ' ++ (vars.originalMessage as String)]" />
+		<flow-ref doc:name="p-profile-created" doc:id="1ec0802c-3bec-48b1-a456-392ec2962063" name="p-profile-created" />
+		<logger level="INFO" doc:name="End" doc:id="71799e68-d377-4000-a325-721f903ba22e" message="#['[p] profile-created completed for eventType ' ++ (vars.originalMessage as String)]" />
+	</flow>
+
+</mule>

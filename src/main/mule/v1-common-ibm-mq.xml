@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd">
+	<sub-flow name="v1-common-set-transaction-id" doc:id="554654d4-a8df-4e30-a0df-22d0620f057f" >
+		<logger level="INFO" doc:name="Start" doc:id="dafc4d95-d043-4cab-a409-50efbf9d01e9" message="${logging.message} Start" category="${logging.category.default}" />
+		<set-variable value="#[uuid()]" doc:name="transaction_id" doc:id="3dd48904-6c74-439b-ad97-f83059a08a5d" variableName="transaction_id" />
+		<logger level="DEBUG" doc:name="End" doc:id="93209a3d-6834-4bef-9800-89c38c0224b9" message="${ac.eip.api.logging.message.prefix} End" category="${ac.eip.api.logging.category.default}" />
+	</sub-flow>
+</mule>

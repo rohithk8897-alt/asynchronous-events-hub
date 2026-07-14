@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:tls="http://www.mulesoft.org/schema/mule/tls"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:vm="http://www.mulesoft.org/schema/mule/vm"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/current/mule-tls.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/vm http://www.mulesoft.org/schema/mule/vm/current/mule-vm.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+
+	<configuration-properties doc:name="Configuration properties" doc:id="99d41889-5741-415b-8a92-278e49b49219" file="ac-loy-eventhub.properties" />
+
+	<vm:config name="VM_Config" doc:name="VM Config" doc:id="4a223a13-cab7-4917-8b50-3e62932ceb23">
+		<vm:connection >
+			<reconnection failsDeployment="true" />
+		</vm:connection>
+		<expiration-policy maxIdleTime="30000" timeUnit="MILLISECONDS" />
+		<vm:queues>
+			<vm:queue queueName="${ac.loy.eventhub.vm.inbound.queue}" queueType="PERSISTENT" />
+			<vm:queue queueName="${ac.loy.eventhub.vm.dlq.queue}" queueType="PERSISTENT" />
+		</vm:queues>
+	</vm:config>
+
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="42549ebb-c121-4c88-93cb-bad4724ddce0">
+		<http:listener-connection host="0.0.0.0" port="${ac.loy.eventhub.http.port}" />
+	</http:listener-config>
+
+	<http:request-config name="Downstream_Request_config" doc:name="Downstream HTTP Request config" doc:id="0ca1458f-acd4-4a87-8e79-cec36453504c">
+		<http:request-connection host="${ac.loy.eventhub.downstream.host}" port="${ac.loy.eventhub.downstream.port}" protocol="HTTP" />
+	</http:request-config></mule>

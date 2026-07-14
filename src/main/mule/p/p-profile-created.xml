@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+	<!-- Parent process flow: owns checkpointing and parent-level error handling.
+	     Delegates the actual work to the child process flow. On any failure it
+	     raises APP:ACCOUNT_CREATED_PROCESSING_ERROR which propagates to the
+	     consumer's error handler (retry / DLQ). -->
+	<flow name="p-profile-created" doc:id="59793f29-3639-4693-ae29-0f7018bed738">
+		<logger level="INFO" doc:name="Start" doc:id="15b80021-5bf9-458c-857a-d145c43ae8c8" message="${logging.message} Start" category="${logging.category.default}" />
+		<try doc:name="Try" doc:id="2d0b5340-9e8d-478c-a656-7fb3f4909a85" >
+			<flow-ref doc:name="p-profile-created-process" doc:id="4d91aead-5cd1-4c26-b703-06c74e27d795" name="p-profile-created-process" />
+			<error-handler >
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="2e516b3c-b0ca-41c9-b9bc-6227e979e35e" type="ANY">
+					<logger level="DEBUG" doc:name="Logger" doc:id="164fcbde-3cfd-410d-94f0-3ccdfe5a1da6" message="${logging.message} Error occurred during profile created process, setting up checkPoint for republish" category="${logging.category.default}" />
+					<set-variable value="#[0]" doc:name="checkPoint" doc:id="96e765d2-c42f-4dc7-aeb2-f506282b6862" variableName="checkPoint"/>
+				</on-error-propagate>
+			</error-handler>
+		</try>
+		<logger level="INFO" doc:name="End" doc:id="b7d5bb56-e041-4bdc-9008-d789b6937d3e" message="${logging.message} Start" category="${logging.category.default}" />
+		<error-handler>
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="1a04ac98-cdea-4628-b7c0-91399bc05ef7" type="ANY">
+				<logger level="DEBUG" doc:name="Logger" doc:id="bf88f06e-04ff-4233-9cc4-f7f341bfc8f3" message="${logging.message} Start" category="${logging.category.default}"/>
+				<raise-error doc:name="Raise error" doc:id="883cf918-359a-4c81-9406-a25960ce67e7" type="APP:ACCOUNT_CREATED_PROCESSING_ERROR_DEFAULT" description="accountCreated message Processing error" />
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+
+</mule>

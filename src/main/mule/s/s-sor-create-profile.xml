@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+
+	<!-- s-layer: exactly one outbound call to the system of record (SOR).
+	     No orchestration, no business logic. Any error is propagated so the
+	     parent p-flow owns the checkpoint / retry decision. -->
+	<flow name="s-sor-create-profile" doc:id="9ff3fa04-3db8-4252-953c-e99aa30910e6">
+		<logger level="INFO" doc:name="Log s-layer call" doc:id="b08c1fee-e759-45c1-83f4-d028ec893e49" message="${logging.message} [s] creating profile in system of record" category="${logging.category.default}" />
+		<http:request method="POST" doc:name="POST profile record" doc:id="ed51ee42-e626-469b-a68c-23a208ed725d" config-ref="Downstream_Request_config" path="#[p('ac.loy.eventhub.sor.createProfile.path')]">
+			<http:body><![CDATA[#[payload]]]></http:body>
+			<http:headers><![CDATA[#[output application/java
+---
+{ "Content-Type": "application/json" }]]]></http:headers>
+		</http:request>
+		<logger level="INFO" doc:name="Log s-layer response" doc:id="fc74e015-9421-4335-98b6-e7775316b994" message="#['${logging.message} [s] system responded ' ++ (attributes.statusCode default 0 as String)]" category="${logging.category.default}" />
+		<error-handler>
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="Propagate s-layer error" doc:id="90b30b10-59ac-4f9f-9b4b-0bc8e99664c0" type="ANY">
+				<logger level="ERROR" doc:name="Log s-layer failure" doc:id="8c6cbde6-afe2-4434-824d-429ef19d0413" message="#['${logging.message} [s] system call failed: ' ++ (error.description default '')]" category="${logging.category.default}" />
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+
+</mule>

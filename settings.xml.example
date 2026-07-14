@@ -1,0 +1,23 @@
+<!-- Copy relevant <server> and <profile> blocks into your local ~/.m2/settings.xml -->
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0">
+  <servers>
+    <server>
+      <id>anypoint-exchange-v3</id>
+      <username>~~~Client~~~</username>
+      <password>CLIENT_ID~SEP~CLIENT_SECRET</password>
+    </server>
+  </servers>
+
+  <profiles>
+    <profile>
+      <id>anypoint-exchange</id>
+      <properties>
+        <anypoint.org.id>YOUR_ANYPOINT_ORG_ID</anypoint.org.id>
+      </properties>
+    </profile>
+  </profiles>
+
+  <activeProfiles>
+    <activeProfile>anypoint-exchange</activeProfile>
+  </activeProfiles>
+</settings>

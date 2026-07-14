@@ -20,18 +20,18 @@ run it.
               VM queue  eventhub.inbound
                         │
                         ▼
-        ac-loy-eventhub-consumer  (VM listener)
+        asynchronous-events-consumer  (VM listener)
                         │
         reads notificationTypeToFlow.json  ──►  dynamic flow-ref
                         │
           ┌─────────────┴──────────────┐
           │ mapped                      │ unmapped / error
           ▼                             ▼
-  x-loy-events-account-created  eventhub-dead-letter
+  x-profile-created              eventhub-dead-letter
      (x: route/validate)            → VM queue eventhub.dlq
           │
           ▼
-  p-loy-events-profile-update
+  p-profile-created
      (p: orchestrate, map to system contract, retry)
           │
           ▼
@@ -48,15 +48,12 @@ run it.
 | Experience / Router (`x-`) | `x-profile-created` | Thin: validate + delegate to `p-` |
 | Process (`p-`) | `p-profile-created` | Orchestrate: map to system contract, retry |
 | System (`s-`) | `s-system-record-upsert` | Exactly one outbound HTTP call |
-| Consumer | `ac-loy-eventhub-consumer` | VM listener + dynamic routing, no per-type logic |
+| Consumer | `asynchronous-events-consumer` | VM listener + dynamic routing, no per-type logic |
 | Test harness | `x-eventhub-inject`, `mock-system-of-record` | Inject events / stand in for the downstream | helps to inject event through postman and http listener for local mock testing.
 
 ### Dynamic routing
 `src/main/resources/notificationTypeToFlow.json` maps `eventType → x-flow`:
-
-```json
 { "accountCreated": "x-profile-created" }
-```
 
 The consumer reads this at runtime and dispatches with `<flow-ref name="#[vars.targetFlow]"/>`.
 **Adding a new event type = one JSON entry + one new `x-` flow. The consumer
@@ -105,12 +102,12 @@ src/main/mule/
   global.xml                              # VM, HTTP listener, downstream requester, Object Store
   util/mock-downstream.xml                # local mock system of record (HTTP 200)
   x/x-eventhub-inject.xml                 # POST /events injector + /health
-  x/ac-loy-eventhub-consumer.xml          # VM consumer + dynamic routing + DLQ
-  x/x-loy-eventhub-balance-updates.xml    # experience/router layer
-  p/p-loy-eventhub-balance-update.xml     # process layer
-  s/s-system-record-upsert.xml            # system layer (one HTTP call)
+  asynchronous-events-consumer.xml        # VM consumer + dynamic routing + DLQ
+  x/x-profile-created.xml                 # experience/router layer
+  p/p-profile-created.xml                 # process layer
+  s/s-sor-create-profile.xml              # system layer (one HTTP call)
 src/main/resources/
-  ac-loy-eventhub.properties              # all config (no secrets)
+  asynchronous-events.properties          # all config (no secrets)
   notificationTypeToFlow.json             # eventType -> x-flow routing registry
 ```
 
@@ -121,7 +118,7 @@ This POC favors zero-setup reproducibility. In a real deployment:
 - **Transport** — replace the VM connector with **IBM MQ** or **Anypoint MQ**
   for durable, cross-application messaging. The consumer logic is unchanged;
   only the listener/config swaps.
-- **Downstream / persistence** — point `ac.loy.eventhub.downstream.*` at a real
+- **Downstream / persistence** — point `asynchronous.events.downstream.*` at a real
   system API, or replace the s-layer with a Database/DynamoDB connector.
 - **Registry caching** — the consumer reads `notificationTypeToFlow.json` per
   message via `readUrl`. For higher throughput, cache it in the provided

@@ -74,7 +74,7 @@ output application/json
 payload ++ { deliveryCount: (vars.deliveryCount default 0) ++ 1 }]]></ee:set-payload>
 							</ee:message>
 						</ee:transform>
-						<logger level="WARN" doc:name="Log replay" doc:id="876ebc63-f3fe-4bdc-abe7-1c5904c02794" message="#['Replaying ' ++ (vars.originalMessage as String) ++ ' - attempt ' ++ ((vars.deliveryCount as Number) + 1 as String) ++ ' of ' ++ p('ac.loy.eventhub.retry.maxDeliveryCount')]" category="${logging.category.default}"/>
+						<logger level="WARN" doc:name="Log replay" doc:id="876ebc63-f3fe-4bdc-abe7-1c5904c02794" message="#['Replaying ' ++ (vars.originalMessage as String) ++ ' - attempt ' ++ ((vars.deliveryCount as Number) + 1 as String) ++ ' of ' ++ p('asynchronous.events.retry.maxDeliveryCount')]" category="${logging.category.default}"/>
 						<vm:publish queueName="${asynchronous.events.vm.inbound.queue}" doc:name="Republish to inbound queue" doc:id="527030ef-ab43-4ebc-a646-baee69081e37" config-ref="VM_Config" />
 					</when>
 					<otherwise>

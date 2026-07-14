@@ -6,11 +6,9 @@
 
 ## Overview
 
-`asynchronous-events-hub` (internal name `ac-loy-eventhub`) is a **Mule 4** portfolio/showcase application demonstrating asynchronous event processing with API-led connectivity. Events are posted to an HTTP endpoint, land on an in-JVM VM queue, and are **dynamically routed** to a processing flow based on a JSON registry (no hardcoded `choice`/branching logic). Processing flows down through Experience → Process → System layers to a downstream "system of record," which in this repo is a local mock HTTP flow.
+`asynchronous-events-hub` is a Mule 4 portfolio/showcase application demonstrating **asynchronous event processing with API-led connectivity**. Events are posted to an HTTP endpoint, land on an in-JVM VM queue, and are **dynamically routed** to processing flows based on a JSON registry — no hardcoded branching logic. Events then flow through Experience → Process → System layers down to a mocked "system of record."
 
-The project is intentionally **zero-infrastructure**: no external broker, no database. The queue is Mule's built-in VM connector, and the downstream system is a mock flow inside the same app. It can be cloned, opened in Anypoint Studio, and run immediately.
-
-Maven coordinates: `com.showcase.loyalty:asynchronous-events-hub:1.0.0-SNAPSHOT`, packaging `mule-application`.
+The app is intentionally **zero-infrastructure**: no external broker, no database. The queue is Mule's in-JVM VM connector, and the downstream system is a local mock HTTP flow within the same app. It is meant to be cloned, opened in Anypoint Studio, and run directly.
 
 ## Architecture
 
@@ -21,18 +19,18 @@ Maven coordinates: `com.showcase.loyalty:asynchronous-events-hub:1.0.0-SNAPSHOT`
               VM queue  eventhub.inbound
                         │
                         ▼
-        ac-loy-eventhub-consumer  (VM listener)
+        asynchronous-events-consumer  (VM listener)
                         │
         reads notificationTypeToFlow.json  ──►  dynamic flow-ref
                         │
           ┌─────────────┴──────────────┐
           │ mapped                      │ unmapped / error
           ▼                             ▼
-  x-loy-events-account-created  eventhub-dead-letter
+  x-profile-created              eventhub-dead-letter
      (x: route/validate)            → VM queue eventhub.dlq
           │
           ▼
-  p-loy-events-profile-update
+  p-profile-created
      (p: orchestrate, map to system contract, retry)
           │
           ▼
@@ -43,103 +41,121 @@ Maven coordinates: `com.showcase.loyalty:asynchronous-events-hub:1.0.0-SNAPSHOT`
   mock-system-of-record  (local HTTP 200 — swap for a real API in properties)
 ```
 
-### API-led layers
+### Layers (API-led)
 
 | Layer | Flow | Responsibility |
 |-------|------|-----------------|
 | Experience / Router (`x-`) | `x-profile-created` | Thin: validate + delegate to `p-` |
 | Process (`p-`) | `p-profile-created` | Orchestrate: map to system contract, retry |
 | System (`s-`) | `s-system-record-upsert` | Exactly one outbound HTTP call |
-| Consumer | `ac-loy-eventhub-consumer` | VM listener + dynamic routing, no per-event-type logic |
-| Test harness | `x-eventhub-inject`, `mock-system-of-record` | Inject events (e.g. via Postman) / stand in for the downstream system for local testing |
+| Consumer | `asynchronous-events-consumer` | VM listener + dynamic routing, no per-type logic |
+| Test harness | `x-eventhub-inject`, `mock-system-of-record` | Inject events (e.g. via Postman/HTTP listener) and simulate the downstream system for local testing |
 
-### Dynamic routing mechanism
+### Dynamic routing pattern
 
-`src/main/resources/notificationTypeToFlow.json` maps `eventType → x-flow name`, e.g.:
+`src/main/resources/notificationTypeToFlow.json` maps `eventType → x-flow`, e.g.:
 
 ```json
 { "accountCreated": "x-profile-created" }
 ```
 
-The consumer flow reads this file at runtime and dispatches via `<flow-ref name="#[vars.targetFlow]"/>`. **Adding a new event type requires only a new JSON entry plus a new `x-` flow — the consumer flow itself never changes.** Unmapped event types are routed to the dead-letter path and parked on the VM queue `eventhub.dlq`.
+The consumer flow (`asynchronous-events-consumer`) reads this registry at runtime and dispatches via `<flow-ref name="#[vars.targetFlow]"/>`. **The consumer never changes** when adding new event types — adding support for a new event type requires only:
+1. A new entry in `notificationTypeToFlow.json`
+2. A new `x-` flow to handle it
+
+Unmapped event types are routed to `eventhub-dead-letter`, which parks them on the VM dead-letter queue (`eventhub.dlq`) instead of failing loudly.
 
 ## Key directories & files
 
-- `pom.xml` — Maven build descriptor; `mule-application` packaging via `mule-maven-plugin`.
-- `mule-artifact.json` — Mule application descriptor (required by the Mule runtime/Studio).
-- `settings.xml.example` — Template for `~/.m2/settings.xml`; needed to supply Anypoint Exchange credentials so Maven/Studio can resolve connector dependencies.
-- `src/main/mule/global.xml` — Shared/global configuration: VM connector config, HTTP listener config.
-- `src/main/mule/ac-loy-eventhub-consumer.xml` — The VM listener/consumer flow that performs dynamic routing based on the JSON registry.
-- `src/main/mule/v1-common-ibm-mq.xml` — IBM MQ-related configuration (present as a production-alternative reference; the app itself runs on VM, not MQ, by default).
-- `src/main/mule/x/` — Experience-layer flows (prefix `x-`): validation/routing, event injector, mock system-of-record.
-- `src/main/mule/p/` — Process-layer flows (prefix `p-`): orchestration, mapping to system contract, retry logic.
-- `src/main/mule/s/` — System-layer flows (prefix `s-`): single outbound HTTP call per flow.
-- `src/main/mule/README2.md` — Additional in-repo notes on the Mule flow layout (check alongside root README).
-- `src/main/resources/notificationTypeToFlow.json` — The event-type → flow-name routing registry driving dynamic dispatch.
-- `src/main/resources/asynchronous-events.properties` / `default.properties` — Environment/app configuration properties (e.g. downstream system URL, ports).
-- `src/main/resources/application-types.xml` — Type definitions used by the app.
-- `src/main/resources/dw/` — DataWeave transformation scripts used by flows for mapping payloads (e.g., mapping to the system contract in the `p-` layer).
-- `src/main/resources/api/` — API specification assets (RAML/OAS or similar) for API-led layers.
-- `src/test/munit/` — MUnit test suites for flows.
-- `src/test/resources/` — Test fixture resources.
+- `src/main/mule/global.xml` — global configs: VM connector config, HTTP listener config.
+- `src/main/mule/asynchronous-events-consumer.xml` — the VM consumer/router flow (`asynchronous-events-consumer`) and dead-letter handling.
+- `src/main/mule/v1-common-ibm-mq.xml` — IBM MQ-related common config (see gotcha below: IBM MQ connector is a pom dependency though the app runs on VM by default).
+- `src/main/mule/x/` — Experience-layer flows (`x-` prefix): input validation, injector flow, thin routing/delegation flows.
+- `src/main/mule/p/` — Process-layer flows (`p-` prefix): orchestration, mapping to system contracts, retry logic.
+- `src/main/mule/s/` — System-layer flows (`s-` prefix): single outbound HTTP calls to (mocked) downstream systems.
+- `src/main/mule/README2.md` — supplemental internal notes on the Mule flow structure (worth checking for flow-specific detail not in the top-level README).
+- `src/main/resources/notificationTypeToFlow.json` — the dynamic routing registry driving event-type → flow dispatch.
+- `src/main/resources/application-types.xml`, `default.properties`, `asynchronous-events.properties` — app config and environment property files (e.g., downstream system URL overrides).
+- `src/main/resources/api/` — API spec/contract assets (RAML/OAS presumably, for the exposed `/events` API).
+- `src/main/resources/dw/` — DataWeave transformation scripts used across the x/p/s layers.
+- `src/test/munit/` — MUnit test suites.
+- `mule-artifact.json` — Mule application descriptor (exported APIs/ports).
+- `pom.xml` — Maven build descriptor and connector dependency versions.
+- `settings.xml.example` — template for `~/.m2/settings.xml`, needed for Anypoint Exchange connector resolution.
+- `exchange-docs/home.md` — Exchange-facing documentation for the asset.
 
 ## Tech stack
 
-- **Runtime:** Mule 4, app runtime version `4.9.0`.
-- **Build tool:** Maven, packaging `mule-application`, built via `mule-maven-plugin` (v4.3.0).
-- **Connectors/modules:**
-  - `mule-http-connector` (1.9.0) — outbound `s-` layer calls and inbound listeners (injector, health, mock system).
-  - `mule-vm-connector` (2.0.1) — in-JVM queue used as the zero-infra async transport (`eventhub.inbound`, `eventhub.dlq`).
-  - `mule-validation-module` (2.0.7) — lightweight input validation in the `x-` layer.
-  - `mule-ibm-mq-connector` (1.8.1) — included as a production-migration path (VM is a stand-in for IBM MQ/Anypoint MQ in real deployments).
-- **Testing:** MUnit (`munit-runner`, `munit-tools`, v3.4.0), test-scoped.
-- **Repositories:** Anypoint Exchange Maven repo (`maven.anypoint.mulesoft.com`) and MuleSoft releases repo — both required for dependency resolution; credentials come from `~/.m2/settings.xml` (see `settings.xml.example`).
+- **Runtime**: Mule 4, `app.runtime` = `4.9.0`
+- **Build**: Maven, `mule-maven-plugin` 4.3.0, packaging type `mule-application`
+- **Connectors**:
+  - `mule-http-connector` (1.9.0) — inbound listeners (injector, health, mock system) and outbound `s-` layer calls
+  - `mule-vm-connector` (2.0.1) — in-JVM queue used as the zero-infra inbound transport for this POC (production would swap this for IBM MQ / Anypoint MQ)
+  - `mule-validation-module` (2.0.7) — lightweight `x-`-layer input validation
+  - `mule-ibm-mq-connector` (1.8.1) — present as a dependency (see `v1-common-ibm-mq.xml`) but not part of the zero-infra run path
+- **Testing**: MUnit (`munit-runner`, `munit-tools`) version 3.4.0
+- **Repositories**: Anypoint Exchange Maven repo (`maven.anypoint.mulesoft.com`) and MuleSoft public releases repo — both required to resolve connector dependencies.
 
 ## Build / test / run
 
-1. **Credentials:** Copy `settings.xml.example` to `~/.m2/settings.xml` and fill in Anypoint Exchange credentials — required to resolve connector dependencies from Anypoint Exchange.
-2. **Import into Anypoint Studio:** File → Import → Anypoint Studio project from File System → select repo root. Studio resolves `pom.xml` and connectors automatically.
-3. **Run:** Run As → Mule Application. The app starts an HTTP listener on port `8081`. No external queue, broker, or database is needed.
-4. **Exercise the app:**
-   - Health check: `curl http://localhost:8081/health`
-   - Happy path (routed event):
-     ```bash
-     curl -X POST http://localhost:8081/events \
-       -H "Content-Type: application/json" \
-       -d '{"eventType":"accountCreated","memberId":"M1","payload":{"balance":5000,"currency":"POINTS"}}'
-     ```
-     Returns `202 Accepted`; console log shows consumer → `x-profile-created` → `p-` → `s-` → mock system `200`.
-   - Dead-letter path (unmapped event type):
-     ```bash
-     curl -X POST http://localhost:8081/events \
-       -H "Content-Type: application/json" \
-       -d '{"eventType":"UNKNOWN_EVENT","memberId":"M9","payload":{}}'
-     ```
-     Returns `202`; event is parked on VM queue `eventhub.dlq` since no route exists in `notificationTypeToFlow.json`.
-5. **Command-line build:** standard Maven lifecycle applies (`mvn clean package`) given `mule-maven-plugin` with `extensions=true`; MUnit tests run as part of the Maven build via the MUnit dependencies declared in test scope.
+### Prerequisites
+- Anypoint Studio (for import/run) or Mule runtime + Maven CLI.
+- Anypoint Exchange credentials configured in `~/.m2/settings.xml` — copy/adapt `settings.xml.example`. Without this, Maven cannot resolve the connector dependencies from the Exchange repo.
 
-## Coding standards & conventions
+### Run locally (Studio)
+1. *File → Import → Anypoint Studio project from File System* → select repo root.
+2. Studio resolves `pom.xml` and connector dependencies.
+3. Run As → Mule Application. App starts on **port 8081**.
 
-- **Flow naming prefixes signal API-led layer and enforce separation of concerns:**
-  - `x-` — Experience layer: thin validation + delegation only.
-  - `p-` — Process layer: orchestration, contract mapping, retry logic.
-  - `s-` — System layer: exactly one outbound call per flow.
-- **No hardcoded per-event-type branching in the consumer.** All event-type-to-flow mappings live in `src/main/resources/notificationTypeToFlow.json`; the consumer flow (`ac-loy-eventhub-consumer.xml`) is generic and dispatches via `flow-ref` using a variable (`vars.targetFlow`) resolved from that registry.
-- **Adding a new event type** = add one entry to `notificationTypeToFlow.json` + add one new `x-` flow. Do not modify the consumer flow for new event types.
-- **DataWeave scripts** for payload/contract mapping are kept in `src/main/resources/dw/` rather than inlined, keeping flow XML declarative.
-- **Configuration externalized** to `.properties` files (`asynchronous-events.properties`, `default.properties`) rather than hardcoded in flows — e.g., the downstream system URL should be swapped there rather than in flow XML.
+### Sample requests
+
+Routed (happy path):
+```bash
+curl -X POST http://localhost:8081/events \
+  -H "Content-Type: application/json" \
+  -d '{"eventType":"accountCreated","memberId":"M1","payload":{"balance":5000,"currency":"POINTS"}}'
+```
+Expect `202 Accepted`; console log shows consumer → `x-profile-created` → `p-` → `s-` → mock system `200`.
+
+Unmapped (dead-letter path):
+```bash
+curl -X POST http://localhost:8081/events \
+  -H "Content-Type: application/json" \
+  -d '{"eventType":"UNKNOWN_EVENT","memberId":"M9","payload":{}}'
+```
+Expect `202`; event is parked on `eventhub.dlq` (no downstream call made).
+
+Health check:
+```bash
+curl http://localhost:8081/health
+```
+
+### Maven build
+Standard Mule Maven plugin lifecycle applies (`mvn clean package`, etc.) given `packaging=mule-application` and `mule-maven-plugin` with `extensions=true`. Requires the Exchange repo credentials noted above.
 
 ## Testing approach
 
-- Tests are written using **MUnit** (v3.4.0) and live under `src/test/munit/`, with supporting fixtures in `src/test/resources/`.
-- `munit-runner` and `munit-tools` are declared as test-scoped Maven dependencies (`mule-plugin` classifier), consistent with standard Mule MUnit project setup.
-- The `x-eventhub-inject` flow and `mock-system-of-record` flow double as a manual/local test harness — they allow injecting events (e.g., via Postman) and observing the full chain against a local mock instead of a real downstream system.
+- Tests live in `src/test/munit/` (MUnit test suites) and `src/test/java/` (any supporting Java test utilities) and `src/test/resources/`.
+- MUnit is wired in via `munit-runner` and `munit-tools` (test-scoped, `mule-plugin` classifier), version 3.4.0.
+- The app also ships a manual/local test harness distinct from MUnit: the `x-eventhub-inject` flow (HTTP endpoint to inject synthetic events, e.g. via Postman) and `mock-system-of-record` (a local HTTP flow standing in for the real downstream system, returning `200`). These are useful for end-to-end manual verification without any external dependencies.
+
+## Coding standards & conventions
+
+- **API-led naming convention** is strictly followed via flow/file prefixes:
+  - `x-` = Experience layer (thin: input validation + delegation only)
+  - `p-` = Process layer (orchestration, contract mapping, retry logic)
+  - `s-` = System layer (exactly **one** outbound call per flow — no additional logic)
+  - `ac-` = the async consumer flow (VM listener + dynamic routing)
+- Flows are physically organized to mirror this convention: `src/main/mule/x/`, `src/main/mule/p/`, `src/main/mule/s/`.
+- **No hardcoded event-type branching** anywhere in the consumer — routing decisions are driven entirely by the `notificationTypeToFlow.json` registry plus `flow-ref` dispatch on `vars.targetFlow`. Extending event support must follow this same pattern (add a JSON entry + a new `x-` flow), not add conditionals to the consumer.
+- DataWeave transforms are centralized under `src/main/resources/dw/` rather than inlined, per typical Mule project convention (confirm exact usage per flow when editing).
+- Environment-specific values are externalized to properties files (`default.properties`, `asynchronous-events.properties`) rather than hardcoded in flows — e.g., the downstream "system of record" URL is intended to be swapped via properties, not by editing the `s-` flow itself.
 
 ## Important notes & gotchas
 
-- **VM connector is a stand-in, not the production transport.** The README and `pom.xml` comments both note that VM is used here for a zero-infrastructure demo; a real deployment would swap in IBM MQ or Anypoint MQ. The `mule-ibm-mq-connector` dependency and `v1-common-ibm-mq.xml` config are present specifically for this migration path — don't assume MQ is active by default.
-- **Downstream system is mocked locally.** `mock-system-of-record` returns a local HTTP 200; to point at a real system, update the target URL in the properties files rather than editing flow XML.
-- **Anypoint Exchange credentials required to build.** Because dependencies (HTTP/VM/validation connectors, MUnit) are resolved from the Anypoint Exchange Maven repo, builds will fail without valid credentials in `~/.m2/settings.xml`. Use `settings.xml.example` as the template.
-- **Unmapped event types are not errors from the caller's perspective** — the `/events` endpoint still returns `202 Accepted` even when an event type has no entry in `notificationTypeToFlow.json`; it's silently parked on `eventhub.dlq` rather than surfaced as a 4xx/5xx.
-- **Two READMEs exist at the root** (`README.md` and `readme.md`) with identical content — be aware of potential case-insensitive filesystem conflicts when editing.
-- **App runs on port `8081`** by default (per HTTP listener config in `global.xml`); no port configuration is needed for local runs.
+- **VM connector is a stand-in for a real broker.** The `README.md` explicitly states VM is used "as the inbound transport for this POC" and that production usage would swap in IBM MQ or Anypoint MQ. The `mule-ibm-mq-connector` dependency and `v1-common-ibm-mq.xml` config file already exist in the repo — likely scaffolding for that production alternative — but the default/local run path uses VM only.
+- **Anypoint Exchange credentials are mandatory** for a clean build/import — connector dependencies resolve from `https://maven.anypoint.mulesoft.com/api/v3/maven`. Use `settings.xml.example` as the template for `~/.m2/settings.xml`.
+- **Unmapped event types don't fail the request** — the HTTP call still returns `202 Accepted` even when the event has no registry mapping; the event is silently parked on `eventhub.dlq`. Don't rely on the HTTP response status to detect routing success/failure — check the DLQ / logs instead.
+- **The `s-` layer flow is intentionally minimal** — exactly one outbound HTTP call, no branching. If you find yourself adding logic there, it likely belongs in the `p-` layer instead.
+- There are duplicate READMEs (`README.md` and `readme.md` with identical content) at the repo root — be aware of case-sensitivity issues on case-insensitive filesystems when editing.
+- `src/main/mule/README2.md` contains supplemental Mule-flow-specific notes not duplicated in the top-level README — check it before assuming the top-level README is the complete picture on flow internals.

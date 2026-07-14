@@ -9,7 +9,7 @@ http://www.mulesoft.org/schema/mule/vm http://www.mulesoft.org/schema/mule/vm/cu
 http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
 http://www.mulesoft.org/schema/mule/ibm-mq http://www.mulesoft.org/schema/mule/ibm-mq/current/mule-ibm-mq.xsd">
 
-	<flow name="ac-loy-eventhub-consumer" doc:id="0e27bde2-c6d0-44a3-ab4a-b6a03a7a6eb4" maxConcurrency="${asynchronous.events.consumer.numberOfConsumers}">
+	<flow name="asynchronous-events-consumer" doc:id="0e27bde2-c6d0-44a3-ab4a-b6a03a7a6eb4" maxConcurrency="${asynchronous.events.consumer.numberOfConsumers}">
 		<vm:listener doc:name="Listener" doc:id="1938bcb7-2161-405e-be79-bfe86b797c33" config-ref="VM_Config" queueName="eventhub.inbound"/>
 		<flow-ref doc:name="v1-common-set-transaction-id" doc:id="f35945bf-bf2d-4f52-9f63-d8774125a8b1" name="v1-common-set-transaction-id"/>
 		<logger level="INFO" doc:name="Start" doc:id="4b6aa9a6-9890-4044-8df3-01061fd76e75" message="${logging.message} Start" category="${logging.category.default}" />

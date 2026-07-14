@@ -1,4 +1,4 @@
-# asynchronous-events-hub — ac-loy-eventhub (portfolio showcase)
+# asynchronous-events-hub — asynchronous.events (portfolio showcase)
 
 A self-contained Mule 4 app demonstrating **asynchronous event processing with
 API-led connectivity**. Events land on a queue, get **dynamically routed** to

@@ -81,7 +81,7 @@ curl -X POST http://localhost:8081/events \
   -d '{"eventType":"accountCreated","memberId":"M1","payload":{"balance":5000,"currency":"POINTS"}}'
 ```
 Returns `202 Accepted`. Console shows: consumer received → routed to
-`x-loy-eventhub-balance-updates` → `p-` → `s-` → mock system `200`.
+`x-profile-created` → `p-` → `s-` → mock system `200`.
 
 Unmapped event (dead-letter path):
 ```bash
